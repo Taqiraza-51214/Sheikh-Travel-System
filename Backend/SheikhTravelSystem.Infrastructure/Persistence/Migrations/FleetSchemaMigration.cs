@@ -27,6 +27,8 @@ public static class FleetSchemaMigration
         await CreateAssignmentHistoryAsync(connection, cancellationToken);
         await CreateVehicleReservationsAsync(connection, cancellationToken);
         await CreateFleetExpensesAsync(connection, cancellationToken);
+        await CreateMaintenanceSchedulesAsync(connection, cancellationToken);
+        await CreateWorkOrdersAsync(connection, cancellationToken);
         await CreateStatusCodesAsync(connection, cancellationToken);
         await SeedStatusCodesAsync(connection, cancellationToken);
         await EnsureGpsPositionIndexAsync(connection, cancellationToken);
@@ -247,6 +249,116 @@ public static class FleetSchemaMigration
         await connection.ExecuteAsync(new CommandDefinition("""
             IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_FleetExpenses_Vehicle_Date')
                 CREATE INDEX IX_FleetExpenses_Vehicle_Date ON FleetExpenses (VehicleId, ExpenseDate DESC) WHERE IsDeleted = 0;
+            """, cancellationToken: ct));
+    }
+
+    private static async Task CreateMaintenanceSchedulesAsync(System.Data.IDbConnection connection, CancellationToken ct)
+    {
+        await connection.ExecuteAsync(new CommandDefinition("""
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'MaintenanceSchedules')
+            CREATE TABLE MaintenanceSchedules (
+                Id INT IDENTITY(1,1) PRIMARY KEY,
+                TenantId INT NOT NULL,
+                VehicleId INT NOT NULL,
+                ServiceType NVARCHAR(120) NOT NULL,
+                IntervalType NVARCHAR(20) NOT NULL DEFAULT N'mileage',
+                IntervalValue DECIMAL(12,2) NOT NULL,
+                LastServiceMileage DECIMAL(12,2) NULL,
+                Priority NVARCHAR(20) NOT NULL DEFAULT N'medium',
+                IsActive BIT NOT NULL DEFAULT 1,
+                CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                CreatedBy NVARCHAR(100) NULL,
+                IsDeleted BIT NOT NULL DEFAULT 0,
+                CONSTRAINT FK_MaintenanceSchedules_Vehicles FOREIGN KEY (VehicleId) REFERENCES Vehicles(Id)
+            );
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_MaintenanceSchedules_Tenant_Vehicle')
+                CREATE INDEX IX_MaintenanceSchedules_Tenant_Vehicle
+                    ON MaintenanceSchedules (TenantId, VehicleId) WHERE IsDeleted = 0;
+            """, cancellationToken: ct));
+    }
+
+    private static async Task CreateWorkOrdersAsync(System.Data.IDbConnection connection, CancellationToken ct)
+    {
+        await connection.ExecuteAsync(new CommandDefinition("""
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'WorkOrders')
+            CREATE TABLE WorkOrders (
+                Id INT IDENTITY(1,1) PRIMARY KEY,
+                TenantId INT NOT NULL,
+                OrderNumber NVARCHAR(20) NOT NULL,
+                VehicleId INT NOT NULL,
+                ServiceType NVARCHAR(120) NOT NULL,
+                WorkshopName NVARCHAR(200) NULL,
+                Status NVARCHAR(20) NOT NULL DEFAULT N'open',
+                Priority NVARCHAR(20) NOT NULL DEFAULT N'medium',
+                EstimatedCost DECIMAL(18,2) NOT NULL DEFAULT 0,
+                ActualCost DECIMAL(18,2) NULL,
+                StartDate DATETIME2 NULL,
+                CompletedDate DATETIME2 NULL,
+                Description NVARCHAR(2000) NULL,
+                CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                IsDeleted BIT NOT NULL DEFAULT 0,
+                CONSTRAINT FK_WorkOrders_Vehicles FOREIGN KEY (VehicleId) REFERENCES Vehicles(Id)
+            );
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_WorkOrders_Tenant_Status')
+                CREATE INDEX IX_WorkOrders_Tenant_Status
+                    ON WorkOrders (TenantId, Status) WHERE IsDeleted = 0;
+
+            IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_WorkOrders_Tenant_Vehicle')
+                CREATE INDEX IX_WorkOrders_Tenant_Vehicle
+                    ON WorkOrders (TenantId, VehicleId) WHERE IsDeleted = 0;
+
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'WorkOrders' AND COLUMN_NAME = 'OrderNumber')
+                ALTER TABLE WorkOrders ADD OrderNumber NVARCHAR(20) NULL;
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'WorkOrders' AND COLUMN_NAME = 'WorkshopName')
+                ALTER TABLE WorkOrders ADD WorkshopName NVARCHAR(200) NULL;
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'WorkOrders' AND COLUMN_NAME = 'EstimatedCost')
+                ALTER TABLE WorkOrders ADD EstimatedCost DECIMAL(18,2) NOT NULL DEFAULT 0;
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'WorkOrders' AND COLUMN_NAME = 'ActualCost')
+                ALTER TABLE WorkOrders ADD ActualCost DECIMAL(18,2) NULL;
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'WorkOrders' AND COLUMN_NAME = 'StartDate')
+                ALTER TABLE WorkOrders ADD StartDate DATETIME2 NULL;
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'WorkOrders' AND COLUMN_NAME = 'CompletedDate')
+                ALTER TABLE WorkOrders ADD CompletedDate DATETIME2 NULL;
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'WorkOrders' AND COLUMN_NAME = 'Description')
+                ALTER TABLE WorkOrders ADD Description NVARCHAR(2000) NULL;
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'WorkOrders' AND COLUMN_NAME = 'Priority')
+                ALTER TABLE WorkOrders ADD Priority NVARCHAR(20) NOT NULL DEFAULT N'medium';
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'WorkOrders' AND COLUMN_NAME = 'ServiceType')
+                ALTER TABLE WorkOrders ADD ServiceType NVARCHAR(120) NULL;
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'WorkOrders' AND COLUMN_NAME = 'Status')
+                ALTER TABLE WorkOrders ADD Status NVARCHAR(20) NULL;
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'WorkOrders' AND COLUMN_NAME = 'TenantId')
+                ALTER TABLE WorkOrders ADD TenantId INT NULL;
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'WorkOrders' AND COLUMN_NAME = 'IsDeleted')
+                ALTER TABLE WorkOrders ADD IsDeleted BIT NOT NULL DEFAULT 0;
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'WorkOrders' AND COLUMN_NAME = 'CreatedAt')
+                ALTER TABLE WorkOrders ADD CreatedAt DATETIME2 NULL;
+
+            UPDATE WorkOrders
+            SET TenantId = 1
+            WHERE TenantId IS NULL;
+
+            UPDATE WorkOrders
+            SET OrderNumber = CONCAT('WO-', RIGHT(CONCAT('00000', CAST(Id AS NVARCHAR(10))), 5))
+            WHERE OrderNumber IS NULL OR LTRIM(RTRIM(OrderNumber)) = '';
+
+            UPDATE WorkOrders
+            SET Status = N'open'
+            WHERE Status IS NULL OR LTRIM(RTRIM(Status)) = '';
+
+            UPDATE WorkOrders
+            SET ServiceType = N'General Service'
+            WHERE ServiceType IS NULL OR LTRIM(RTRIM(ServiceType)) = '';
+
+            UPDATE WorkOrders
+            SET Priority = N'medium'
+            WHERE Priority IS NULL OR LTRIM(RTRIM(Priority)) = '';
+
+            UPDATE WorkOrders
+            SET CreatedAt = COALESCE(CreatedAt, GETUTCDATE())
+            WHERE CreatedAt IS NULL;
             """, cancellationToken: ct));
     }
 

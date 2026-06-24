@@ -1,0 +1,174 @@
+<section class="wo-page">
+  <div class="wo-toolbar">
+    <div>
+      <h2 class="wo-title">Work Orders</h2>
+      <p class="wo-subtitle">Track approved maintenance jobs and workshop progress</p>
+    </div>
+    <div class="wo-toolbar-actions">
+      <ui-button variant="outline" icon="refresh" (clicked)="load()">Refresh</ui-button>
+      <ui-button variant="primary" icon="add" (clicked)="openCreateDrawer()">Create Work Order</ui-button>
+    </div>
+  </div>
+
+  <div class="wo-stats">
+    <button type="button" class="wo-stat" [class.wo-stat--active]="statusFilter() === 'open'" (click)="statusFilter.set('open')">
+      <span class="wo-stat-value">{{ openCount() }}</span>
+      <span class="wo-stat-label">Open</span>
+    </button>
+    <button type="button" class="wo-stat" [class.wo-stat--active]="statusFilter() === 'in_progress'" (click)="statusFilter.set('in_progress')">
+      <span class="wo-stat-value">{{ inProgressCount() }}</span>
+      <span class="wo-stat-label">In Progress</span>
+    </button>
+    <button type="button" class="wo-stat" [class.wo-stat--active]="statusFilter() === 'completed'" (click)="statusFilter.set('completed')">
+      <span class="wo-stat-value">{{ completedCount() }}</span>
+      <span class="wo-stat-label">Completed</span>
+    </button>
+    <button type="button" class="wo-stat" [class.wo-stat--active]="statusFilter() === 'cancelled'" (click)="statusFilter.set('cancelled')">
+      <span class="wo-stat-value">{{ cancelledCount() }}</span>
+      <span class="wo-stat-label">Cancelled</span>
+    </button>
+    <button type="button" class="wo-stat wo-stat--outline" [class.wo-stat--active]="statusFilter() === 'all'" (click)="statusFilter.set('all')">
+      <span class="wo-stat-label">All Orders</span>
+    </button>
+  </div>
+
+  <div class="wo-filters">
+    <ui-input
+      label="Vehicle"
+      placeholder="Search vehicle…"
+      [ngModel]="vehicleFilter()"
+      (ngModelChange)="vehicleFilter.set($event)" />
+    <ui-select
+      label="Priority"
+      [options]="priorityFilterOptions"
+      [ngModel]="priorityFilter()"
+      (ngModelChange)="priorityFilter.set($event)" />
+    <ui-select
+      label="Status"
+      [options]="statusFilterOptions"
+      [ngModel]="statusFilter()"
+      (ngModelChange)="statusFilter.set($event)" />
+    <ui-button variant="ghost" (clicked)="resetFilters()">Reset</ui-button>
+  </div>
+
+  @if (loading()) {
+    <p class="wo-loading">Loading work orders…</p>
+  } @else if (!filteredOrders().length) {
+    <div class="wo-empty">
+      <mat-icon>assignment</mat-icon>
+      <p>No work orders found.</p>
+      <ui-button variant="primary" (clicked)="openCreateDrawer()">Create Work Order</ui-button>
+    </div>
+  } @else {
+    <div class="wo-table-wrap">
+      <table class="wo-table">
+        <thead>
+          <tr>
+            <th>Order #</th>
+            <th>Vehicle</th>
+            <th>Service Type</th>
+            <th>Est. / Actual Cost</th>
+            <th>Start Date</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of filteredOrders(); track row.id) {
+            <tr>
+              <td>{{ row.orderNumber }}</td>
+              <td>
+                <strong>{{ row.vehicleName }}</strong>
+                <span class="wo-reg">{{ row.vehicleRegistration }}</span>
+              </td>
+              <td>{{ row.serviceType }}</td>
+              <td>{{ displayCost(row) | currency:'USD':'symbol':'1.2-2' }}</td>
+              <td>{{ row.startDate ? (row.startDate | date:'mediumDate') : '—' }}</td>
+              <td>{{ row.priority | titlecase }}</td>
+              <td>
+                <button type="button" class="wo-status-btn" (click)="openDetail(row)">
+                  <fleet-status-badge [status]="statusLabel(row.status)"></fleet-status-badge>
+                </button>
+              </td>
+              <td class="wo-actions">
+                <ui-button variant="ghost" size="sm" (clicked)="openDetail(row)">View</ui-button>
+                @if (row.status === 'open') {
+                  <ui-button variant="primary" size="sm" (clicked)="approve(row)">Approve</ui-button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>
+
+<ui-drawer
+  [(open)]="drawerOpen"
+  [title]="createMode() ? 'Create Work Order' : 'Work Order'"
+  width="520px"
+  (closed)="closeDrawer()">
+  @if (createMode()) {
+    <form [formGroup]="form" (ngSubmit)="submitCreate()" class="wo-form">
+      <ui-select
+        formControlName="vehicleId"
+        label="Vehicle"
+        [options]="vehicleOptions()"
+        [searchable]="true"
+        [required]="true"
+        searchPlaceholder="Search vehicles…" />
+      <ui-select formControlName="serviceType" label="Service Type" [options]="serviceTypeOptions" [required]="true" />
+      <ui-input formControlName="workshopName" label="Workshop" placeholder="Workshop name" />
+      <ui-select formControlName="priority" label="Priority" [options]="priorityOptions" [required]="true" />
+      <ui-input formControlName="estimatedCost" label="Estimated Cost" type="number" [required]="true" />
+      <ui-input formControlName="actualCost" label="Actual Cost" type="number" />
+      <ui-input formControlName="startDate" label="Start Date" placeholder="YYYY-MM-DD" />
+      <label class="wo-textarea-field">
+        <span class="wo-label">Description</span>
+        <textarea formControlName="description" rows="4" placeholder="Work order notes"></textarea>
+      </label>
+      <div class="wo-drawer-actions">
+        <ui-button type="button" variant="outline" (clicked)="closeDrawer()">Cancel</ui-button>
+        <ui-button [type]="'submit'" variant="primary" [loading]="submitting()">Create</ui-button>
+      </div>
+    </form>
+  } @else if (detailLoading()) {
+    <p class="wo-loading">Loading work order…</p>
+  } @else if (selectedOrder()) {
+    <div class="wo-detail">
+      <div class="wo-detail-head">
+        <strong>{{ selectedOrder()!.orderNumber }}</strong>
+        <fleet-status-badge [status]="statusLabel(selectedOrder()!.status)"></fleet-status-badge>
+      </div>
+
+      <dl class="wo-detail-grid">
+        <div><dt>Vehicle</dt><dd>{{ selectedOrder()!.vehicleName }} ({{ selectedOrder()!.vehicleRegistration }})</dd></div>
+        <div><dt>Service Type</dt><dd>{{ selectedOrder()!.serviceType }}</dd></div>
+        <div><dt>Workshop</dt><dd>{{ selectedOrder()!.workshopName || '—' }}</dd></div>
+        <div><dt>Priority</dt><dd>{{ selectedOrder()!.priority | titlecase }}</dd></div>
+        <div><dt>Estimated Cost</dt><dd>{{ selectedOrder()!.estimatedCost | currency:'USD':'symbol':'1.2-2' }}</dd></div>
+        <div><dt>Actual Cost</dt><dd>{{ selectedOrder()!.actualCost != null ? (selectedOrder()!.actualCost | currency:'USD':'symbol':'1.2-2') : '—' }}</dd></div>
+        <div><dt>Start Date</dt><dd>{{ selectedOrder()!.startDate ? (selectedOrder()!.startDate | date:'mediumDate') : '—' }}</dd></div>
+        <div><dt>Created</dt><dd>{{ selectedOrder()!.createdAt | date:'medium' }}</dd></div>
+      </dl>
+
+      @if (selectedOrder()!.description) {
+        <div class="wo-detail-notes">
+          <span class="wo-label">Description</span>
+          <p>{{ selectedOrder()!.description }}</p>
+        </div>
+      }
+
+      <div class="wo-drawer-actions">
+        <ui-button type="button" variant="outline" (clicked)="closeDrawer()">Close</ui-button>
+        @if (canApprove(selectedOrder())) {
+          <ui-button variant="primary" [loading]="approving()" (clicked)="approve(selectedOrder()!)">Approve</ui-button>
+        }
+      </div>
+    </div>
+  } @else {
+    <p class="wo-loading">Work order details are unavailable.</p>
+  }
+</ui-drawer>

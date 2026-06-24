@@ -112,7 +112,7 @@ export class UiSelectComponent implements ControlValueAccessor {
   protected readonly disabled = signal(false);
   protected readonly selected = signal<string[]>([]);
 
-  private onChange: (value: string | string[] | null) => void = () => {};
+  private onChange: (value: unknown) => void = () => {};
   private onTouched: () => void = () => {};
 
   protected readonly filteredOptions = computed(() => {
@@ -131,7 +131,7 @@ export class UiSelectComponent implements ControlValueAccessor {
       return this.placeholder();
     }
     const labels = this.options()
-      .filter((o) => values.includes(o.value))
+      .filter((o) => values.includes(this.normalizeValue(o.value)))
       .map((o) => o.label);
     if (this.multiple()) {
       return labels.length > 2 ? `${labels.slice(0, 2).join(', ')} +${labels.length - 2}` : labels.join(', ');
@@ -153,22 +153,23 @@ export class UiSelectComponent implements ControlValueAccessor {
     this.query.set((event.target as HTMLInputElement).value);
   }
 
-  isSelected(value: string): boolean {
-    return this.selected().includes(value);
+  isSelected(value: string | number | boolean): boolean {
+    return this.selected().includes(this.normalizeValue(value));
   }
 
   selectOption(option: UiSelectOption): void {
     if (option.disabled) {
       return;
     }
+    const normalized = this.normalizeValue(option.value);
     if (this.multiple()) {
       const next = this.isSelected(option.value)
-        ? this.selected().filter((v) => v !== option.value)
-        : [...this.selected(), option.value];
+        ? this.selected().filter((v) => v !== normalized)
+        : [...this.selected(), normalized];
       this.selected.set(next);
-      this.onChange(next);
+      this.onChange(this.toOptionValues(next));
     } else {
-      this.selected.set([option.value]);
+      this.selected.set([normalized]);
       this.onChange(option.value);
       this.open.set(false);
       this.onTouched();
@@ -183,17 +184,37 @@ export class UiSelectComponent implements ControlValueAccessor {
     }
   }
 
-  writeValue(value: string | string[] | null): void {
-    if (value == null) {
+  writeValue(value: string | string[] | number | boolean | null | undefined): void {
+    if (value == null || value === '') {
       this.selected.set([]);
-    } else if (Array.isArray(value)) {
-      this.selected.set(value);
-    } else {
-      this.selected.set([value]);
+      return;
     }
+    if (Array.isArray(value)) {
+      this.selected.set(value.map((v) => this.normalizeValue(v)).filter(Boolean));
+      return;
+    }
+    const normalized = this.normalizeValue(value);
+    this.selected.set(normalized ? [normalized] : []);
   }
 
-  registerOnChange(fn: (value: string | string[] | null) => void): void {
+  /** Coerce option/form values so numeric enums and string ids compare reliably. */
+  private normalizeValue(value: unknown): string {
+    if (value == null || value === '') {
+      return '';
+    }
+    return String(value);
+  }
+
+  /** Map normalized internal values back to each option's declared value type. */
+  private toOptionValues(normalizedValues: string[]): Array<string | number | boolean> {
+    const options = this.options();
+    return normalizedValues.map((value) => {
+      const match = options.find((option) => this.normalizeValue(option.value) === value);
+      return match?.value ?? value;
+    });
+  }
+
+  registerOnChange(fn: (value: unknown) => void): void {
     this.onChange = fn;
   }
 

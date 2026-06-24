@@ -1,0 +1,136 @@
+<div class="mr-page">
+  <fleet-page-header
+    eyebrow="Fleet Management"
+    title="Service Requests"
+    subtitle="Create and track maintenance service requests"
+    icon="build">
+    <ui-button variant="primary" icon="add" (clicked)="openNewRequestForm()">New Request</ui-button>
+  </fleet-page-header>
+
+  <section class="mr-stats">
+    <button
+      type="button"
+      class="mr-stat"
+      [class.mr-stat--active]="statusFilter() === 'open'"
+      (click)="setStatusFilter('open')">
+      <stb-stat-tile label="Open" [value]="openCount()" icon="pending_actions" color="amber" [loading]="loading()"></stb-stat-tile>
+    </button>
+    <button
+      type="button"
+      class="mr-stat"
+      [class.mr-stat--active]="statusFilter() === 'approved'"
+      (click)="setStatusFilter('approved')">
+      <stb-stat-tile label="Approved" [value]="approvedCount()" icon="check_circle" color="green" [loading]="loading()"></stb-stat-tile>
+    </button>
+    <button
+      type="button"
+      class="mr-stat"
+      [class.mr-stat--active]="statusFilter() === 'in_progress'"
+      (click)="setStatusFilter('in_progress')">
+      <stb-stat-tile label="In Progress" [value]="inProgressCount()" icon="build_circle" color="teal" [loading]="loading()"></stb-stat-tile>
+    </button>
+    <button
+      type="button"
+      class="mr-stat mr-stat--outline"
+      [class.mr-stat--active]="statusFilter() === 'all'"
+      (click)="setStatusFilter('all')">
+      <span class="mr-stat-outline-label">All Requests</span>
+    </button>
+  </section>
+
+  @if (showForm()) {
+    <section class="mr-form-card">
+      <h2 class="mr-form-title">New Service Request</h2>
+      <form [formGroup]="form" (ngSubmit)="submit()" class="mr-form-grid">
+        <ui-select
+          formControlName="vehicleId"
+          label="Vehicle"
+          [options]="vehicleOptions()"
+          [searchable]="true"
+          [required]="true"
+          [error]="fieldError('Vehicle', 'vehicleId')"
+          searchPlaceholder="Search vehicles…" />
+
+        <ui-select
+          formControlName="priority"
+          label="Priority"
+          [options]="priorityOptions"
+          [required]="true"
+          [error]="fieldError('Priority', 'priority')" />
+
+        <ui-select
+          formControlName="category"
+          label="Category"
+          [options]="categoryOptions"
+          [required]="true"
+          [error]="fieldError('Category', 'category')" />
+
+        <ui-select
+          formControlName="type"
+          label="Type"
+          [options]="typeOptions"
+          [required]="true"
+          [error]="fieldError('Type', 'type')" />
+
+        <label class="mr-textarea-field span-2">
+          <span class="mr-label">Description <span class="required">*</span></span>
+          <textarea
+            formControlName="description"
+            rows="4"
+            maxlength="2000"
+            placeholder="Describe the issue or service needed"></textarea>
+          <span class="mr-char-count">{{ descriptionLength() }}/2000</span>
+          @if (fieldError('Description', 'description')) {
+            <span class="mr-error">{{ fieldError('Description', 'description') }}</span>
+          }
+        </label>
+
+        <div class="mr-form-actions span-2">
+          <ui-button type="button" variant="outline" (clicked)="cancelForm()">Cancel</ui-button>
+          <ui-button [type]="'submit'" variant="primary" [loading]="submitting()">Create Request</ui-button>
+        </div>
+      </form>
+    </section>
+  }
+
+  <section class="mr-table-wrap">
+    @if (loading()) {
+      <p class="mr-loading">Loading requests…</p>
+    } @else if (!filteredRequests().length) {
+      <div class="mr-empty">
+        <mat-icon>build</mat-icon>
+        <p>No service requests found.</p>
+      </div>
+    } @else {
+      <table class="mr-table">
+        <thead>
+          <tr>
+            <th>Request #</th>
+            <th>Vehicle</th>
+            <th>Category</th>
+            <th>Type</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of filteredRequests(); track row.id) {
+            <tr>
+              <td>{{ row.requestNumber }}</td>
+              <td>
+                <strong>{{ row.vehicleName }}</strong>
+                <span class="mr-reg">{{ row.vehicleRegistration }}</span>
+              </td>
+              <td>{{ categoryLabel(row.category) }}</td>
+              <td>{{ typeLabel(row.type) }}</td>
+              <td><span [ngClass]="priorityClass(row.priority)">{{ priorityLabel(row.priority) | uppercase }}</span></td>
+              <td><fleet-status-badge [status]="statusLabel(row.status)"></fleet-status-badge></td>
+              <td>{{ row.createdAt | date: 'mediumDate' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+</div>

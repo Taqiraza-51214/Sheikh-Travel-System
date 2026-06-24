@@ -1,0 +1,174 @@
+<section class="ms-page">
+  <div class="ms-toolbar">
+    <div>
+      <h2 class="ms-title">Service Scheduler</h2>
+      <p class="ms-subtitle">Plan recurring maintenance by mileage, date, or engine hours</p>
+    </div>
+    <div class="ms-toolbar-actions">
+      <div class="ms-view-toggle" role="group" aria-label="View mode">
+        <button type="button" class="ms-view-btn" [class.ms-view-btn--active]="viewMode() === 'list'" (click)="viewMode.set('list')">List</button>
+        <button type="button" class="ms-view-btn" [class.ms-view-btn--active]="viewMode() === 'calendar'" (click)="viewMode.set('calendar')">Calendar</button>
+        <button type="button" class="ms-view-btn" [class.ms-view-btn--active]="viewMode() === 'timeline'" (click)="viewMode.set('timeline')">Timeline</button>
+      </div>
+      <ui-button variant="primary" icon="add" (clicked)="openDrawer()">Schedule Service</ui-button>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <p class="ms-loading">Loading schedules…</p>
+  } @else if (!vehicleRows().length) {
+    <div class="ms-empty">
+      <mat-icon>local_shipping</mat-icon>
+      <p>No vehicles available for scheduling.</p>
+      <span>Add vehicles to your fleet before creating service schedules.</span>
+    </div>
+  } @else {
+    <div class="ms-table-wrap">
+      <table class="ms-table">
+        <thead>
+          <tr>
+            <th>Vehicle</th>
+            <th>Current Mileage</th>
+            <th>Next Service</th>
+            <th>Service Type</th>
+            <th>Schedules</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of vehicleRows(); track row.vehicleId) {
+            <tr>
+              <td>
+                <strong>{{ row.vehicleName }}</strong>
+                <span class="ms-reg">{{ row.vehicleRegistration }}</span>
+              </td>
+              <td>{{ row.currentMileage | number:'1.0-0' }} km</td>
+              <td>{{ row.nextServiceMileage != null ? (row.nextServiceMileage | number:'1.0-0') + ' km' : '—' }}</td>
+              <td>{{ row.primaryServiceType || '—' }}</td>
+              <td>{{ row.schedules.length }}</td>
+              <td class="ms-actions">
+                <ui-button variant="primary" size="sm" (clicked)="openDrawerForVehicle(row)">Schedule</ui-button>
+                @if (row.schedules[0]) {
+                  <ui-button variant="ghost" size="sm" (clicked)="openEditDrawer(row.schedules[0])">Edit</ui-button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (schedules().length) {
+      <div class="ms-table-wrap ms-schedule-list">
+        <h3 class="ms-section-title">All Scheduled Services</h3>
+        <table class="ms-table">
+          <thead>
+            <tr>
+              <th>Vehicle</th>
+              <th>Service Type</th>
+              <th>Current Mileage</th>
+              <th>Next Service Mileage</th>
+              <th>Priority</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of schedules(); track row.id) {
+              <tr>
+                <td>
+                  <strong>{{ row.vehicleName }}</strong>
+                  <span class="ms-reg">{{ row.vehicleRegistration }}</span>
+                </td>
+                <td>{{ row.serviceType }}</td>
+                <td>{{ row.currentMileage != null ? (row.currentMileage | number:'1.0-0') + ' km' : '—' }}</td>
+                <td>{{ row.nextServiceMileage != null ? (row.nextServiceMileage | number:'1.0-0') + ' km' : '—' }}</td>
+                <td><span [ngClass]="priorityClass(row.priority)">{{ row.priority | titlecase }}</span></td>
+                <td>
+                  <ui-button variant="ghost" size="sm" (clicked)="openEditDrawer(row)">Edit</ui-button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</section>
+
+<ui-drawer [(open)]="drawerOpen" [title]="drawerTitle()" width="480px" (closed)="closeDrawer()">
+  <form [formGroup]="form" (ngSubmit)="submit()" class="ms-form">
+    @if (lockedVehicle(); as vehicle) {
+      <div class="ms-vehicle-banner">
+        <mat-icon>local_shipping</mat-icon>
+        <div>
+          <strong>{{ vehicle.name }}</strong>
+          <span>{{ vehicle.registrationNumber }}</span>
+        </div>
+      </div>
+    } @else {
+      <ui-select
+        formControlName="vehicleId"
+        label="Vehicle"
+        [options]="vehicleOptions()"
+        [searchable]="true"
+        [required]="true"
+        [error]="fieldError('Vehicle', 'vehicleId')"
+        searchPlaceholder="Search vehicles…" />
+    }
+
+    <ui-select
+      formControlName="serviceType"
+      label="Service Type"
+      [options]="serviceTypeOptions"
+      [required]="true"
+      [error]="fieldError('Service type', 'serviceType')" />
+
+    <ui-input
+      formControlName="customServiceType"
+      label="Custom service label (optional)"
+      placeholder="e.g. AC Service" />
+
+    <ui-select
+      formControlName="intervalType"
+      label="Interval Type"
+      [options]="intervalTypeOptions"
+      [required]="true"
+      [error]="fieldError('Interval type', 'intervalType')" />
+
+    <ui-input
+      formControlName="intervalValue"
+      label="Interval Value"
+      type="number"
+      [required]="true"
+      [error]="fieldError('Interval value', 'intervalValue')" />
+
+    <ui-input
+      formControlName="lastServiceMileage"
+      label="Last Service Mileage (km)"
+      type="number"
+      [error]="fieldError('Last service mileage', 'lastServiceMileage')" />
+
+    <ui-select
+      formControlName="priority"
+      label="Priority"
+      [options]="priorityOptions"
+      [required]="true"
+      [error]="fieldError('Priority', 'priority')" />
+
+    <div class="ms-templates">
+      <span class="ms-templates-label">Quick templates</span>
+      <div class="ms-template-list">
+        @for (template of quickTemplates; track template.label) {
+          <button type="button" class="ms-template-btn" (click)="applyTemplate(template)">
+            {{ template.label }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="ms-drawer-actions">
+      <ui-button type="button" variant="outline" (clicked)="closeDrawer()">Cancel</ui-button>
+      <ui-button [type]="'submit'" variant="primary" [loading]="submitting()">{{ submitLabel() }}</ui-button>
+    </div>
+  </form>
+</ui-drawer>

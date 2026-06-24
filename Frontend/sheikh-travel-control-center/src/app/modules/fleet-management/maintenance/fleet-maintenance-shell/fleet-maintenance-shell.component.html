@@ -1,0 +1,24 @@
+<div class="fm-shell">
+  <header class="fm-header">
+    <div>
+      <p class="fm-eyebrow">Fleet Management</p>
+      <h1 class="fm-title">Fleet Maintenance</h1>
+    </div>
+  </header>
+
+  <nav class="fm-tabs" aria-label="Maintenance sections">
+    @for (tab of tabs; track tab.id) {
+      <a
+        class="fm-tab"
+        [routerLink]="tab.route"
+        routerLinkActive="fm-tab--active"
+        [routerLinkActiveOptions]="{ exact: tab.id === 'dashboard' }">
+        {{ tab.label }}
+      </a>
+    }
+  </nav>
+
+  <div class="fm-content">
+    <router-outlet></router-outlet>
+  </div>
+</div>

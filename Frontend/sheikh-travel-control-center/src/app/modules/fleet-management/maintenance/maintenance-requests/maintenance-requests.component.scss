@@ -1,0 +1,195 @@
+.mr-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.mr-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.mr-stat {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mr-stat--active :host ::ng-deep stb-stat-tile,
+.mr-stat--active stb-stat-tile {
+  outline: 2px solid var(--fleet-primary, #0d9488);
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+
+.mr-stat--outline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 88px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.mr-stat-outline-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f766e;
+}
+
+.mr-form-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+  padding: 1.25rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+}
+
+.mr-form-title {
+  margin: 0 0 1rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.mr-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.span-2 {
+  grid-column: span 2;
+}
+
+.mr-textarea-field {
+  display: block;
+}
+
+.mr-label {
+  display: block;
+  margin-bottom: 0.375rem;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.required {
+  color: #dc2626;
+}
+
+.mr-textarea-field textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 6rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.25rem;
+  padding: 0.625rem 0.75rem;
+  font: inherit;
+}
+
+.mr-textarea-field textarea:focus {
+  outline: none;
+  border-color: #0d9488;
+}
+
+.mr-char-count {
+  display: block;
+  margin-top: 0.25rem;
+  text-align: right;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.mr-error {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 12px;
+  font-weight: 500;
+  color: #dc2626;
+}
+
+.mr-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.mr-table-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: #fff;
+  overflow: hidden;
+}
+
+.mr-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.mr-table th,
+.mr-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.mr-table th {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  background: #f8fafc;
+}
+
+.mr-reg {
+  display: block;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.priority-high {
+  color: #ea580c;
+  font-weight: 700;
+}
+
+.priority-medium {
+  color: #ca8a04;
+  font-weight: 600;
+}
+
+.priority-low {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.mr-loading,
+.mr-empty {
+  padding: 2rem;
+  text-align: center;
+  color: #64748b;
+}
+
+.mr-empty mat-icon {
+  font-size: 2rem;
+  width: 2rem;
+  height: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .mr-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mr-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .span-2 {
+    grid-column: span 1;
+  }
+}
